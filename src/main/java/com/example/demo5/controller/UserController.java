@@ -5,13 +5,14 @@ import com.example.demo5.exception.UserException;
 import com.example.demo5.model.User;
 import com.example.demo5.service.UserService;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.hateoas.CollectionModel;
-import org.springframework.hateoas.EntityModel;
-import org.springframework.hateoas.IanaLinkRelations;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedResourcesAssembler;
+import org.springframework.hateoas.*;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,12 +21,13 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 @CrossOrigin("*")
 @RestController
-@RequestMapping("/users")
+@RequestMapping(value = "/users", produces = { MediaType.APPLICATION_JSON_VALUE, MediaTypes.HAL_JSON_VALUE })
 public class UserController {
 
+    private static final int DEFAULT_PAGE_NUMBER = 1;
+    private static final int DEFAULT_PAGE_SIZE = 1;
     private final UserService userService;
     private final UserModelAssembler userModelAssembler;
-    Pageable firstPageWithTwoElements = PageRequest.of(0, 2);
 
     public UserController(UserService userService, UserModelAssembler userModelAssembler) {
         this.userService = userService;
@@ -33,10 +35,14 @@ public class UserController {
     }
 
     @GetMapping("")
-    public CollectionModel<EntityModel<User>> findAll(@PathVariable(required = false) int size) {
-        List<EntityModel<User>> users = userService.findAll(firstPageWithTwoElements).map(userModelAssembler::toModel).stream().collect(Collectors.toList());
-        return CollectionModel.of(users, linkTo(methodOn(UserController.class)).withSelfRel(),
-                linkTo(methodOn(UserController.class).findAll(size)).withRel(""));
+    @ResponseBody
+    public CollectionModel<EntityModel<User>> findAll(
+            @PageableDefault(page = DEFAULT_PAGE_NUMBER, size = DEFAULT_PAGE_SIZE) Pageable pageable,
+            PagedResourcesAssembler<User> pagedResourcesAssembler
+    ) {
+        Page<User> usersPage = userService.findAll(pageable);
+        List<EntityModel<User>> users = usersPage.map(userModelAssembler::toModel).stream().collect(Collectors.toList());
+        return CollectionModel.of(users, linkTo(methodOn(UserController.class)).withSelfRel());
     }
 
     @GetMapping("/{id}")
